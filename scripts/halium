@@ -71,8 +71,8 @@ identify_android_image() {
 
 	[ -f /tmpmnt/system.img ] && ANDROID_IMAGE_MODE="system"
 	[ -f /tmpmnt/android-rootfs.img ] && ANDROID_IMAGE_MODE="rootfs"
-	[ -f /tmpmnt/halium-rootfs/var/lib/lxc/android/system.img ] && ANDROID_IMAGE_MODE="system"
-	[ -f /tmpmnt/halium-rootfs/var/lib/lxc/android/android-rootfs.img ] && ANDROID_IMAGE_MODE="rootfs"
+	[ -f /halium-system/var/lib/lxc/android/system.img ] && ANDROID_IMAGE_MODE="system"
+	[ -f /halium-system/var/lib/lxc/android/android-rootfs.img ] && ANDROID_IMAGE_MODE="rootfs"
 	[ -z $ANDROID_IMAGE_MODE ] && ANDROID_IMAGE_MODE="unknown"
 }
 
@@ -454,7 +454,7 @@ mountroot() {
 		for x in $(cat /proc/cmdline); do
 			case ${x} in
 			systempart=*)
-				syspart=${x#*=}
+				_syspart=${x#*=}
 				;;
 			esac
 		done
@@ -462,9 +462,6 @@ mountroot() {
 
 	identify_boot_mode
 	identify_file_layout
-	identify_android_image
-
-	[ $ANDROID_IMAGE_MODE = "unknown" ] && tell_kmsg "WARNING: Android system image not found."
 
 	# If both $imagefile and $_syspart are set, something is wrong. The strange
 	# output from this could be a clue in that situation.
@@ -478,8 +475,6 @@ mountroot() {
 	#       to busybox and do the mount in two steps (rw loop, ro fs).
 
 	mkdir -p /halium-system
-	mkdir -p /android-rootfs
-	mkdir -p /android-system
 
 	tell_kmsg "mounting system rootfs at /halium-system"
 	if [ -n "$_syspart" ]; then
@@ -491,6 +486,13 @@ mountroot() {
 		# Rootfs is a directory
 		mount -o bind /tmpmnt/halium-rootfs /halium-system
 	fi
+	
+	# Identify image mode: either "rootfs" or "system"
+	mkdir -p /android-rootfs
+	mkdir -p /android-system
+
+	identify_android_image
+	[ $ANDROID_IMAGE_MODE = "unknown" ] && tell_kmsg "WARNING: Android system image not found."
 
 	# If either (android) /data/.writable_image or (on rootfs)
 	# /.writable_image exist, mount the rootfs as rw

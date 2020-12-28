@@ -534,7 +534,13 @@ mountroot() {
 		# Android system.img is inside rootfs
 		tell_kmsg "mounting android system image from system rootfs"
 		mount -o loop,$MOUNT "/halium-system/var/lib/lxc/android/$ANDROID_IMAGE" $MOUNT_LOCATION
-	fi
+
+		if [ -e "/halium-system/var/lib/lxc/android/vendor.img" ]; then
+			tell_kmsg "mounting android vendor image from system rootfs"
+			mkdir -p /android-vendor
+			mount -o loop,$MOUNT "/halium-system/var/lib/lxc/android/vendor.img" /android-vendor
+		fi
+   	fi
 
 	[ $? -eq 0 ] || tell_kmsg "WARNING: Failed to mount Android system.img."
 
@@ -605,6 +611,13 @@ mountroot() {
 		tell_kmsg "moving Android system to /android/system"
 		mount --move /android-system ${rootmnt}/android/system
 
+		if [ -e /android-vendor ]; then
+			# vendor is also a special case
+			tell_kmsg "moving Android vendor to /android/vendor"
+			mkdir -p ${rootmnt}/android/vendor
+			mount --move /android-vendor ${rootmnt}/android/vendor
+		fi
+		
 		# halium overlay available in the Android system image (hardware specific configs)
 		if [ -e ${rootmnt}/android/system/halium ]; then
 			mount_halium_overlay ${rootmnt}/android/system/halium ${rootmnt}

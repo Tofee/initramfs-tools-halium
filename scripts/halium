@@ -377,7 +377,12 @@ extract_android_ramdisk() {
 	OLD_CWD=$(pwd)
 	mount -n -t tmpfs tmpfs /android-rootfs
 	cd /android-rootfs
-	cat /android-system/boot/android-ramdisk.img | gzip -d | cpio -i
+
+	# Let the distribution provide an override android ramdisk if wanted
+	ANDROID_RAMDISK_LOCATION=/android-system/boot
+	[ -e "/halium-system/var/lib/lxc/android/android-ramdisk.img" ] && ANDROID_RAMDISK_LOCATION=/halium-system/var/lib/lxc/android
+	
+	cat $ANDROID_RAMDISK_LOCATION/android-ramdisk.img | gzip -d | cpio -i
 	cd $OLD_CWD
 }
 

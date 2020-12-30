@@ -143,6 +143,7 @@ mount_android_partitions() {
 
 		# Skip any unwanted entry
 		echo $1 | egrep -q "^#" && continue
+		echo $5 | egrep -q "recoveryonly" && continue
 		([ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]) && continue
 		([ "$2" = "/system" ] || [ "$2" = "/data" ] || [ "$2" = "/" ]) && continue
 
@@ -465,7 +466,7 @@ mountroot() {
 
 	# Mount the data partition to a temporary mount point
 	# FIXME: data=journal used on ext4 as a workaround for bug 1387214
-	[ `blkid $path -o value -s TYPE` = "ext4" ] && OPTIONS="data=journal,"
+	[ "x$(blkid $path -o value -s TYPE)" = "xext4" ] && OPTIONS="data=journal,"
 	mount -o discard,$OPTIONS $path /tmpmnt
 
 	# Set $_syspart if it is specified as systempart= on the command line
@@ -590,10 +591,12 @@ mountroot() {
 		mount --move /tmpmnt ${rootmnt}/userdata
 
 		mount --move /android-rootfs ${rootmnt}/var/lib/lxc/android/rootfs
-		[ $ANDROID_IMAGE_MODE = "system" ] && mount -o rw,size=4096 -t tmpfs none ${rootmnt}/android
-		[ $ANDROID_IMAGE_MODE = "rootfs" ] && mount -o bind ${rootmnt}/var/lib/lxc/android/rootfs ${rootmnt}/android
-
-		mkdir -p ${rootmnt}/android/data ${rootmnt}/android/system
+		if [ $ANDROID_IMAGE_MODE = "system" ]; then
+			mount -o rw,size=4096 -t tmpfs none ${rootmnt}/android
+			mkdir -p ${rootmnt}/android/data ${rootmnt}/android/system
+		elif [ $ANDROID_IMAGE_MODE = "rootfs" ]; then
+			mount -o bind ${rootmnt}/var/lib/lxc/android/rootfs ${rootmnt}/android
+		fi
 
 		# Create a fake android data, shared by rootfs and LXC container
 		mkdir -p ${rootmnt}/userdata/android-data
@@ -613,14 +616,22 @@ mountroot() {
 		mount_android_partitions "${rootmnt}/var/lib/lxc/android/rootfs/fstab*" ${rootmnt}/android ${rootmnt}/userdata
 
 		# system is a special case
-		tell_kmsg "moving Android system to /android/system"
-		mount --move /android-system ${rootmnt}/android/system
+		if [ $ANDROID_IMAGE_MODE = "system" ]; then
+			tell_kmsg "moving Android system to /android/system"
+			mount --move /android-system ${rootmnt}/android/system
+		elif [ $ANDROID_IMAGE_MODE = "rootfs" ]; then
+			# in rootfs mode, /android-system is already a bind-mount from $MOUNT_LOCATION/system, so there's nothing more to do
+			umount /android-system
+		fi
 
 		if [ -e /android-vendor ]; then
 			# vendor is also a special case
 			tell_kmsg "moving Android vendor to /android/vendor"
-			mkdir -p ${rootmnt}/android/vendor
+			[ $ANDROID_IMAGE_MODE = "system" ] && mkdir -p ${rootmnt}/android/vendor
 			mount --move /android-vendor ${rootmnt}/android/vendor
+			
+			# Also mount the android partitions specificied by the vendor
+			mount_android_partitions "${rootmnt}/android/vendor/etc/fstab*" ${rootmnt}/android ${rootmnt}/userdata
 		fi
 		
 		# halium overlay available in the Android system image (hardware specific configs)

@@ -629,10 +629,10 @@ mountroot() {
 			tell_kmsg "moving Android vendor to /android/vendor"
 			[ $ANDROID_IMAGE_MODE = "system" ] && mkdir -p ${rootmnt}/android/vendor
 			mount --move /android-vendor ${rootmnt}/android/vendor
-			
-			# Also mount the android partitions specificied by the vendor
-			mount_android_partitions "${rootmnt}/android/vendor/etc/fstab*" ${rootmnt}/android ${rootmnt}/userdata
 		fi
+		
+		# Also mount the android partitions specificied by the vendor, if any
+		mount_android_partitions "${rootmnt}/android/vendor/etc/fstab*" ${rootmnt}/android ${rootmnt}/userdata
 		
 		# halium overlay available in the Android system image (hardware specific configs)
 		if [ -e ${rootmnt}/android/system/halium ]; then
